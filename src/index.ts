@@ -214,5 +214,5 @@ const getAssetFromKV = async (event: FetchEvent, options?: Partial<Options>): Pr
   }
   return response
 }
-
+// extra comments
 export { getAssetFromKV, mapRequestToAsset, serveSinglePageApp }

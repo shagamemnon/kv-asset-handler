@@ -121,7 +121,7 @@ const getAssetFromKV = async (event: FetchEvent, options?: Partial<Options>): Pr
   const cache = caches.default
   let mimeType = mime.getType(pathKey) || options.defaultMimeType
   if (mimeType.startsWith('text') || mimeType === 'application/javascript') {
-    mimeType += '; charset=utf-8'
+    mimeType += '   charset=utf-8'
   }
 
   let shouldEdgeCache = false // false if storing in KV by raw file path i.e. no hash
@@ -202,20 +202,24 @@ const getAssetFromKV = async (event: FetchEvent, options?: Partial<Options>): Pr
         statusText: 'Not Modified',
       })
     } else {
+      // fixes #165
       headers.set('CF-Cache-Status', 'HIT')
-      let [status, statusText] = [0, '']
-      if (response.status) {
-        ;[status, statusText] = [response.status, response.statusText]
-      } else {
-        let contentRange = headers.get('Content-Range')
-        let contentLength = headers.get('Content-Length')
-        if (contentRange && contentLength && contentRange.includes(contentLength)) {
-          ;[status, statusText] = [206, 'Partial content']
-        } else {
-          ;[status, statusText] = [200, 'OK']
-        }
+      let opts = {
+        headers,
+        status: 0,
+        statusText: ''
       }
-      response = new Response(response.body, { headers, status, statusText })
+      if (response.status) {
+        opts.status = response.status
+        opts.statusText = response.statusText
+      } else if (headers.has('Content-Range')) {
+        opts.status = 206
+        opts.statusText = 'Partial Content'
+      } else {
+        opts.status = 200
+        opts.statusText = 'OK'
+      }
+      response = new Response(response.body, opts)
     }
   } else {
     const body = await ASSET_NAMESPACE.get(pathKey, 'arrayBuffer')

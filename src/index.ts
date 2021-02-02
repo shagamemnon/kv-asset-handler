@@ -34,7 +34,7 @@ const mapRequestToAsset = (request: Request) => {
  * any HTML file.
  * @param {Request} request incoming request
  */
-function serveSinglePageApp(request: Request): Request {
+function serveSinglePageApp (request: Request): Request {
   // First apply the default handler, which already has logic to detect
   // paths that should map to HTML files.
   request = mapRequestToAsset(request)
@@ -85,7 +85,7 @@ const getAssetFromKV = async (event: FetchEvent, options?: Partial<Options>): Pr
 
   const request = event.request
   const ASSET_NAMESPACE = options.ASSET_NAMESPACE
-  const ASSET_MANIFEST = typeof (options.ASSET_MANIFEST) === 'string'
+  const ASSET_MANIFEST = typeof options.ASSET_MANIFEST === 'string'
     ? JSON.parse(options.ASSET_MANIFEST)
     : options.ASSET_MANIFEST
 
@@ -185,7 +185,6 @@ const getAssetFromKV = async (event: FetchEvent, options?: Partial<Options>): Pr
       request.headers.get('if-none-match') === `${pathKey}`,
     ].every(Boolean)
 
-
     if (shouldRevalidate) {
       // fixes issue #118
       if (response.body && 'cancel' in Object.getPrototypeOf(response.body)) {
@@ -202,8 +201,24 @@ const getAssetFromKV = async (event: FetchEvent, options?: Partial<Options>): Pr
         statusText: 'Not Modified',
       })
     } else {
+      // fixes #165
       headers.set('CF-Cache-Status', 'HIT')
-      response = new Response(response.body, { headers })
+      let opts = {
+        headers,
+        status: 0,
+        statusText: ''
+      }
+      if (response.status) {
+        opts.status = response.status
+        opts.statusText = response.statusText
+      } else if (headers.has('Content-Range')) {
+        opts.status = 206
+        opts.statusText = 'Partial Content'
+      } else {
+        opts.status = 200
+        opts.statusText = 'OK'
+      }
+      response = new Response(response.body, opts)
     }
   } else {
     const body = await ASSET_NAMESPACE.get(pathKey, 'arrayBuffer')
